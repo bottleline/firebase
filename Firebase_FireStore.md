@@ -80,3 +80,69 @@ struct CreditCardDummy {
 
 4. 결과
 ![image](https://user-images.githubusercontent.com/42457589/145202908-e85d7498-0dba-49fc-b566-a461d3f1cb62.png)
+  
+
+5. 삽입 삭제
+``` swift
+var db = Firestore.firestore()
+.
+.
+.
+// db 를 불러오고 리스너 등록
+db.collection("creditCardList").addSnapshotListener { snapshot, error in
+            guard let documents = snapshot?.documents else{
+                print("Error \(String(describing: error))")
+                return
+            }
+            
+            self.creditCardList = documents.compactMap{ doc -> CreditCard? in
+                do{
+                    let jsonData = try JSONSerialization.data(withJSONObject: doc.data(), options: [])
+                    let creditCard = try JSONDecoder().decode(CreditCard.self, from: jsonData)
+                    return creditCard
+                }catch let error{
+                    print("Error\(error)")
+                    return nil
+                }
+                
+            }.sorted{$0.rank < $1.rank}
+            
+            DispatchQueue.main.async {
+                self.tableView.reloadData()
+            }
+        }
+ .
+ .
+ .
+ .
+         //Option 1 - 경로를 알때 db 추가
+        let cardID = creditCardList[indexPath.row].id
+        db.collection("creditCardList").document("card\(cardID)").updateData(["isSelected":true])
+        
+        //Option 2 - 경로를 모를때 db 추가
+        db.collection("creditCardList").whereField("id", isEqualTo: cardID).getDocuments { snapshot, _ in
+            guard let document = snapshot?.documents.first else{
+                print("Error ")
+                return
+            }
+            
+            document.reference.updateData(["isSelected":true])
+        }
+ .
+ .
+ .
+ .
+  //Firestore 삭제
+            //option1 - 경로를 알때 삭제
+            db.collection("creditCardList").document("card\(cardID)").delete()
+        
+            //option2 - 경로를 모를때 
+            db.collection("creditCardList").whereField("id", isEqualTo: cardID).getDocuments { snapshot, _ in
+                guard let document = snapshot?.documents.first else {
+                    return
+                }
+                
+                document.reference.delete()
+            }
+
+```
